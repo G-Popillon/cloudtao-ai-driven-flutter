@@ -20,16 +20,23 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.5"
           channel: stable
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      # 新版 Flutter 即使 --no-codesign 也会要求 Development Team；钉 3.24.5 才能出未签名包
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+      # 新版 Flutter 在 --no-codesign 后仍会因缺少 Development Team 返回 1，
+      # 但 Xcode 往往已经产出 Runner.app，据此打包未签名 IPA。
+      - name: Build iOS (unsigned)
+        run: |
+          set +e
+          flutter build ios --release --no-codesign
+          if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
+            echo "Runner.app not found"
+            ls -la build/ios/iphoneos || true
+            exit 1
+          fi
 
       - name: Package IPA
         run: |
