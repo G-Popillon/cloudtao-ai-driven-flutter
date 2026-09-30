@@ -20,12 +20,14 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.24.5"
           channel: stable
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
+      # 新版 Flutter 即使 --no-codesign 也会要求 Development Team；钉 3.24.5 才能出未签名包
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 
