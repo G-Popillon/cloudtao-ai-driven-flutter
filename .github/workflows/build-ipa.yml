@@ -24,24 +24,38 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: flutter pub get
-
-      # 新版 Flutter 在 --no-codesign 后仍会因缺少 Development Team 返回 1，
-      # 但 Xcode 往往已经产出 Runner.app，据此打包未签名 IPA。
-      - name: Build iOS (unsigned)
         run: |
-          set +e
-          flutter build ios --release --no-codesign
-          if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
-            echo "Runner.app not found"
-            ls -la build/ios/iphoneos || true
-            exit 1
-          fi
+          flutter config --no-enable-swift-package-manager
+          flutter pub get
+          flutter precache --ios
+
+      - name: Generate iOS config
+        run: flutter build ios --release --no-codesign --config-only
+
+      - name: Xcode unsigned device build
+        run: |
+          cd ios
+          pod install
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath ../build/ios_derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
 
       - name: Package IPA
         run: |
+          APP_PATH=$(find build/ios_derived -name Runner.app -type d | head -n 1)
+          echo "Using $APP_PATH"
+          test -d "$APP_PATH"
           mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
+          cp -R "$APP_PATH" Payload/
           zip -r asean-weather-ai.ipa Payload
 
       - name: Upload IPA artifact
